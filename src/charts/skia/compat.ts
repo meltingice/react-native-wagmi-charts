@@ -1,4 +1,5 @@
 import React from 'react';
+import { processColor } from 'react-native';
 import { Skia } from '@shopify/react-native-skia';
 import { svgPathProperties } from 'svg-path-properties';
 
@@ -46,6 +47,21 @@ function parseNumericValue(value: number | string | undefined, fallback: number)
   }
 
   return fallback;
+}
+
+function applyOpacityToColor(color: string, opacity: number) {
+  const processedColor = processColor(color);
+
+  if (typeof processedColor !== 'number') {
+    return color;
+  }
+
+  const normalizedColor = processedColor >>> 0;
+  const red = (normalizedColor >> 16) & 255;
+  const green = (normalizedColor >> 8) & 255;
+  const blue = normalizedColor & 255;
+
+  return `rgba(${red}, ${green}, ${blue}, ${opacity})`;
 }
 
 export function getOpacity(
@@ -98,16 +114,20 @@ export function getGradientStops(
 
   if (!elements.length) {
     return [
-      { color: fallbackColor, position: 0.2 },
-      { color: fallbackColor, position: 0.4 },
-      { color: fallbackColor, position: 1 },
+      { color: applyOpacityToColor(fallbackColor, 0.15), position: 0.2 },
+      { color: applyOpacityToColor(fallbackColor, 0.05), position: 0.4 },
+      { color: applyOpacityToColor(fallbackColor, 0), position: 1 },
     ];
   }
 
   return elements.map((element, index) => {
     const stopColor = element.props.stopColor ?? element.props.color ?? fallbackColor;
+    const stopOpacity = parseNumericValue(
+      element.props.stopOpacity ?? element.props.opacity,
+      1
+    );
     return {
-      color: stopColor,
+      color: applyOpacityToColor(stopColor, stopOpacity),
       position: parseNumericValue(
         element.props.offset,
         elements.length === 1 ? 1 : index / (elements.length - 1)

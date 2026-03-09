@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { DashPathEffect, Group, Line, vec } from '@shopify/react-native-skia';
+import { DashPathEffect, Path } from '@shopify/react-native-skia';
 import { LineChartDimensionsContext } from './Chart';
 import { LineChartPathContext } from './LineChartPathContext';
 import type { TLineChartComputedPath } from './types';
@@ -7,6 +7,7 @@ import {
   type CompatiblePathProps,
   getDashIntervals,
   getOpacity,
+  makeSkPathFromPoints,
 } from '../skia/compat';
 
 export type LineChartPathProps = CompatiblePathProps & {
@@ -56,6 +57,7 @@ export function LineChartPath({
   const { isInactive: contextIsInactive } = React.useContext(LineChartPathContext);
   const points = (computedPath ?? contextPath).points;
   const resolvedInactive = isInactiveProp ?? contextIsInactive;
+  const skPath = React.useMemo(() => makeSkPathFromPoints(points), [points]);
   const dashIntervals = React.useMemo(
     () => getDashIntervals(strokeDasharray),
     [strokeDasharray]
@@ -68,42 +70,16 @@ export function LineChartPath({
     resolvedInactive && !inactiveColor ? 0.2 : 1
   );
 
-  React.useEffect(() => {
-    if (!__DEV__) {
-      return;
-    }
-
-    console.log('[react-native-wagmi-charts][LineChartPath]', {
-      pointsLength: points.length,
-      strokeWidth,
-      color: resolvedInactive ? inactiveColor || color : color,
-      opacity: resolvedOpacity,
-      dashIntervals,
-    });
-  }, [color, dashIntervals, inactiveColor, points.length, resolvedInactive, resolvedOpacity, strokeWidth]);
-
   return (
-    <Group>
-      {points.slice(1).map((point: TLineChartComputedPath['points'][number], index: number) => {
-        const previousPoint = points[index];
-        if (!previousPoint) {
-          return null;
-        }
-
-        return (
-          <Line
-            key={`${index}-${point.x}-${point.y}`}
-            p1={vec(previousPoint.x, previousPoint.y)}
-            p2={vec(point.x, point.y)}
-            color={resolvedInactive ? inactiveColor || color : color}
-            strokeWidth={strokeWidth}
-            opacity={resolvedOpacity}
-            strokeCap={strokeLinecap}
-          >
-            {dashIntervals && <DashPathEffect intervals={dashIntervals} />}
-          </Line>
-        );
-      })}
-    </Group>
+    <Path
+      path={skPath}
+      style="stroke"
+      color={resolvedInactive ? inactiveColor || color : color}
+      strokeWidth={strokeWidth}
+      opacity={resolvedOpacity}
+      strokeCap={strokeLinecap}
+    >
+      {dashIntervals && <DashPathEffect intervals={dashIntervals} />}
+    </Path>
   );
 }

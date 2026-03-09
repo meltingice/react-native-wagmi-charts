@@ -145,7 +145,7 @@ export function LineChartCursorLine({
       width: textWidth.value,
       fontSize,
       lineHeight,
-      color: textStyle?.color || TEXT_CONSTANTS.DEFAULT_COLOR,
+      color: textStyle?.color || color || TEXT_CONSTANTS.DEFAULT_COLOR,
       ...textStyle,
     };
 

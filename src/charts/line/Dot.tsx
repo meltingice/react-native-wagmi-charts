@@ -26,6 +26,11 @@ export type LineChartDotProps = {
   showInactiveColor?: boolean;
   at: number;
   computedPath?: TLineChartComputedPath;
+  renderOffset?: {
+    x: number;
+    y: number;
+  };
+  isInactive?: boolean;
   size?: number;
   hasPulse?: boolean;
   hasOuterDot?: boolean;
@@ -50,6 +55,7 @@ export function LineChartDot({
   at,
   color: defaultColor = 'black',
   computedPath,
+  renderOffset,
   dotProps,
   hasOuterDot: defaultHasOuterDot = false,
   hasPulse = false,
@@ -58,6 +64,7 @@ export function LineChartDot({
   pulseBehaviour = 'while-inactive',
   pulseDurationMs = 800,
   showInactiveColor = true,
+  isInactive: isInactiveProp,
   size = 4,
   outerSize = size * 4,
 }: LineChartDotProps) {
@@ -68,11 +75,13 @@ export function LineChartDot({
 
   ////////////////////////////////////////////////////////////
 
-  const { isInactive: _isInactive } = React.useContext(LineChartPathContext);
-  const isInactive = showInactiveColor && _isInactive;
+  const { isInactive: contextIsInactive } = React.useContext(LineChartPathContext);
+  const isInactive = showInactiveColor && (isInactiveProp ?? contextIsInactive);
   const color = isInactive ? inactiveColor || defaultColor : defaultColor;
   const opacity = isInactive && !inactiveColor ? 0.5 : 1;
   const hasOuterDot = defaultHasOuterDot || hasPulse;
+  const offsetX = renderOffset?.x ?? 0;
+  const offsetY = renderOffset?.y ?? 0;
 
   ////////////////////////////////////////////////////////////
 
@@ -145,16 +154,16 @@ export function LineChartDot({
   return (
     <>
       <Circle
-        cx={point?.x ?? 0}
-        cy={point?.y ?? 0}
+        cx={(point?.x ?? 0) + offsetX}
+        cy={(point?.y ?? 0) + offsetY}
         r={typeof dotProps?.r === 'number' ? dotProps.r : size}
         color={dotProps?.color ?? dotProps?.fill ?? color}
         opacity={resolvedOpacity}
       />
       {hasOuterDot && (
         <Circle
-          cx={point?.x ?? 0}
-          cy={point?.y ?? 0}
+          cx={(point?.x ?? 0) + offsetX}
+          cy={(point?.y ?? 0) + offsetY}
           r={typeof outerDotProps?.r === 'number' ? outerDotProps.r : outerRadius}
           opacity={outerOpacity}
           color={

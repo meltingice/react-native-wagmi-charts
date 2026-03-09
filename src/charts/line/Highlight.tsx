@@ -3,8 +3,7 @@ import {
   DashPathEffect,
   rect,
   Group,
-  Line,
-  vec,
+  Path,
 } from '@shopify/react-native-skia';
 import { LineChartDimensionsContext } from './Chart';
 import { LineChartPathContext } from './LineChartPathContext';
@@ -13,7 +12,9 @@ import {
   type CompatiblePathProps,
   getDashIntervals,
   getOpacity,
+  makeSkPathFromPoints,
 } from '../skia/compat';
+import type { TLineChartComputedPath } from './types';
 
 export type LineChartColorProps = CompatiblePathProps & {
   color?: string;
@@ -22,6 +23,9 @@ export type LineChartColorProps = CompatiblePathProps & {
   showInactiveColor?: boolean;
   inactiveColor?: string;
   width?: number;
+  computedPath?: TLineChartComputedPath;
+  chartHeight?: number;
+  isInactive?: boolean;
 };
 
 LineChartHighlight.displayName = 'LineChartHighlight';
@@ -32,7 +36,10 @@ export function LineChartHighlight({
   showInactiveColor = true,
   from,
   to,
+  computedPath,
+  chartHeight,
   width: strokeWidth = 3,
+  isInactive: isInactiveProp,
   opacity,
   strokeOpacity,
   strokeLinecap,
@@ -40,12 +47,18 @@ export function LineChartHighlight({
   strokeMiterlimit,
   ...props
 }: LineChartColorProps) {
-  const { parsedPath, height } = React.useContext(
+  const { parsedPath: contextPath, height: contextHeight } = React.useContext(
     LineChartDimensionsContext
   );
-  const { isInactive: _isInactive } = React.useContext(LineChartPathContext);
-  const isInactive = showInactiveColor && _isInactive;
+  const { isInactive: contextIsInactive } = React.useContext(LineChartPathContext);
+  const parsedPath = computedPath ?? contextPath;
+  const height = chartHeight ?? contextHeight;
+  const isInactive = showInactiveColor && (isInactiveProp ?? contextIsInactive);
   const points = parsedPath.points;
+  const highlightPath = React.useMemo(
+    () => makeSkPathFromPoints(points.slice(from, to + 1)),
+    [from, points, to]
+  );
 
   const clipStart = getXPositionForCurve(parsedPath, from);
   const clipEnd = getXPositionForCurve(parsedPath, to);
@@ -64,33 +77,19 @@ export function LineChartHighlight({
     () => getDashIntervals(props.strokeDasharray),
     [props.strokeDasharray]
   );
-  const highlightedPoints = React.useMemo(
-    () => points.slice(from, to + 1),
-    [from, points, to]
-  );
 
   return (
     <Group clip={clipRect}>
-      {highlightedPoints.slice(1).map((point, index) => {
-        const previousPoint = highlightedPoints[index];
-        if (!previousPoint) {
-          return null;
-        }
-
-        return (
-          <Line
-            key={`${index}-${point.x}-${point.y}`}
-            p1={vec(previousPoint.x, previousPoint.y)}
-            p2={vec(point.x, point.y)}
-            color={isInactive ? inactiveColor || color : color}
-            strokeWidth={strokeWidth}
-            opacity={resolvedOpacity}
-            strokeCap={strokeLinecap}
-          >
-            {dashIntervals && <DashPathEffect intervals={dashIntervals} />}
-          </Line>
-        );
-      })}
+      <Path
+        path={highlightPath}
+        style="stroke"
+        color={isInactive ? inactiveColor || color : color}
+        strokeWidth={strokeWidth}
+        opacity={resolvedOpacity}
+        strokeCap={strokeLinecap}
+      >
+        {dashIntervals && <DashPathEffect intervals={dashIntervals} />}
+      </Path>
     </Group>
   );
 }

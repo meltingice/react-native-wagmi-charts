@@ -16,7 +16,7 @@ function interpolateY(
 
 export function getYForX(path: TLineChartComputedPath, x: number) {
   'worklet';
-  const samples = path.samples;
+  const samples = path.points;
 
   if (!samples.length) {
     return 0;

@@ -3,7 +3,7 @@ import * as d3Shape from 'd3-shape';
 
 import { Dimensions, StyleSheet, View, ViewProps } from 'react-native';
 import { LineChartIdProvider, useLineChartData } from './Data';
-import { getArea, getComputedPath, getPath, getPoints } from './utils';
+import { getComputedPath, getPoints } from './utils';
 
 import { LineChartContext } from './Context';
 import type { TLineChartComputedPath } from './types';
@@ -72,36 +72,6 @@ export function LineChart({
     return allowedWidth;
   }, [data, width, xLength]);
 
-  const path = React.useMemo(() => {
-    if (data && data.length > 0) {
-      return getPath({
-        data,
-        width: pathWidth,
-        height: chartDrawingHeight,
-        gutter: yGutter,
-        shape,
-        yDomain,
-        xDomain,
-      });
-    }
-    return '';
-  }, [data, pathWidth, chartDrawingHeight, yGutter, shape, yDomain, xDomain]);
-
-  const area = React.useMemo(() => {
-    if (data && data.length > 0) {
-      return getArea({
-        data,
-        width: pathWidth,
-        height: chartDrawingHeight,
-        gutter: yGutter,
-        shape,
-        yDomain,
-        xDomain,
-      });
-    }
-    return '';
-  }, [data, pathWidth, chartDrawingHeight, yGutter, shape, yDomain, xDomain]);
-
   const points = React.useMemo(() => {
     if (data && data.length > 0) {
       return getPoints({
@@ -118,8 +88,8 @@ export function LineChart({
   }, [data, pathWidth, chartDrawingHeight, yGutter, yDomain, xDomain]);
 
   const parsedPath = React.useMemo(
-    () => getComputedPath({ path, points }),
-    [path, points]
+    () => getComputedPath({ points }),
+    [points]
   );
   const pointWidth = React.useMemo(
     () => width / (data ? data.length - 1 : 1),
@@ -131,8 +101,8 @@ export function LineChart({
       gutter: yGutter,
       parsedPath,
       pointWidth,
-      area,
-      path,
+      area: '',
+      path: '',
       width,
       height,
       pathWidth,
@@ -142,47 +112,12 @@ export function LineChart({
       yGutter,
       parsedPath,
       pointWidth,
-      area,
-      path,
       width,
       height,
       pathWidth,
       shape,
     ]
   );
-
-  React.useEffect(() => {
-    if (!__DEV__) {
-      return;
-    }
-
-    const firstPoint = points[0];
-    const lastPoint = points[points.length - 1];
-
-    console.log('[react-native-wagmi-charts][LineChart]', {
-      dataLength: data?.length ?? 0,
-      width,
-      height,
-      pathWidth,
-      chartDrawingHeight,
-      yDomain,
-      pathLength: path.length,
-      areaLength: area.length,
-      pointsLength: points.length,
-      firstPoint,
-      lastPoint,
-    });
-  }, [
-    area.length,
-    chartDrawingHeight,
-    data,
-    height,
-    path.length,
-    pathWidth,
-    points,
-    width,
-    yDomain,
-  ]);
 
   return (
     <LineChartIdProvider id={id}>

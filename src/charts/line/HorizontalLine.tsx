@@ -7,11 +7,17 @@ import { getXPositionForCurve } from './utils/getXPositionForCurve';
 import { useLineChart } from './useLineChart';
 import { type CompatibleLineProps, getDashIntervals } from '../skia/compat';
 import { getYForX } from './utils';
+import type { TLineChartComputedPath, YDomain } from './types';
 
 type HorizontalLineProps = {
   color?: string;
   lineProps?: CompatibleLineProps;
   offsetY?: number;
+  computedPath?: TLineChartComputedPath;
+  chartHeight?: number;
+  chartWidth?: number;
+  gutter?: number;
+  yDomain?: YDomain;
   /**
    * (Optional) A pixel value to nudge the line up or down.
    *
@@ -44,18 +50,36 @@ export function LineChartHorizontalLine({
   lineProps = {},
   at = { index: 0 },
   offsetY = 0,
+  computedPath,
+  chartHeight,
+  chartWidth,
+  gutter: gutterProp,
+  yDomain: yDomainProp,
 }: HorizontalLineProps) {
-  const { width, parsedPath, height, gutter } = React.useContext(
+  const {
+    width: contextWidth,
+    parsedPath: contextPath,
+    height: contextHeight,
+    gutter: contextGutter,
+  } = React.useContext(
     LineChartDimensionsContext
   );
-  const { yDomain } = useLineChart();
+  const { yDomain: contextYDomain } = useLineChart();
+  const width = chartWidth ?? contextWidth;
+  const parsedPath = computedPath ?? contextPath;
+  const height = chartHeight ?? contextHeight;
+  const gutter = gutterProp ?? contextGutter;
+  const yDomain = yDomainProp ?? contextYDomain;
 
   const y = useDerivedValue(() => {
     if (typeof at === 'number' || at.index != null) {
       const index = typeof at === 'number' ? at : at.index;
-      const yForX =
-        getYForX(parsedPath!, getXPositionForCurve(parsedPath, index)) || 0;
-      return withTiming(yForX + offsetY);
+      const point = parsedPath.points[index];
+      const yForPoint =
+        point?.y ??
+        getYForX(parsedPath!, getXPositionForCurve(parsedPath, index)) ??
+        0;
+      return withTiming(yForPoint + offsetY);
     }
     /**
      * <gutter>
