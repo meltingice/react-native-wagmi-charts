@@ -10,6 +10,7 @@ type CandlestickChartCandlesProps = ViewProps & {
   width?: number;
   height?: number;
   margin?: CandlestickChartCandleProps['margin'];
+  minBodyHeight?: CandlestickChartCandleProps['minBodyHeight'];
   positiveColor?: CandlestickChartCandleProps['positiveColor'];
   negativeColor?: CandlestickChartCandleProps['negativeColor'];
   renderRect?: CandlestickChartCandleProps['renderRect'];
@@ -26,6 +27,7 @@ export function CandlestickChartCandles({
   rectProps,
   lineProps,
   margin,
+  minBodyHeight,
   useAnimations = true,
   renderRect,
   renderLine,
@@ -43,6 +45,7 @@ export function CandlestickChartCandles({
             key={index as React.Key}
             domain={domain}
             margin={margin}
+            minBodyHeight={minBodyHeight}
             maxHeight={height}
             width={step}
             positiveColor={positiveColor}

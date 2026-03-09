@@ -4,6 +4,7 @@ import {
   Group,
   Line,
   Rect,
+  RoundedRect,
   vec,
 } from '@shopify/react-native-skia';
 
@@ -14,6 +15,28 @@ import {
   type CompatiblePathProps,
 } from '../skia/compat';
 
+export type CandlestickChartRectProps = CompatiblePathProps & {
+  fill?: string;
+  rx?: number;
+  ry?: number;
+};
+
+export type CandlestickChartRenderRectOptions = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rawHeight: number;
+  fill: ColorValue;
+  opacity: number;
+  rx?: number;
+  ry?: number;
+  isPositive: boolean;
+  isTiny: boolean;
+  useAnimations: boolean;
+  candle: TCandle;
+};
+
 export type CandlestickChartCandleProps = {
   candle: TCandle;
   domain: TDomain;
@@ -23,22 +46,13 @@ export type CandlestickChartCandleProps = {
   negativeColor?: string;
   index: number;
   width: number;
-  rectProps?: CompatiblePathProps & {
-    fill?: string;
-    rx?: number;
-    ry?: number;
-  };
+  rectProps?: CandlestickChartRectProps;
   lineProps?: CompatibleLineProps;
   useAnimations?: boolean;
-  renderRect?: (renderRectOptions: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    fill: ColorValue;
-    useAnimations: boolean;
-    candle: TCandle;
-  }) => React.ReactNode;
+  minBodyHeight?: number;
+  renderRect?: (
+    renderRectOptions: CandlestickChartRenderRectOptions
+  ) => React.ReactNode;
   renderLine?: (renderLineOptions: {
     x1: number;
     y1: number;
@@ -63,6 +77,7 @@ export const CandlestickChartCandle = ({
   index,
   width,
   useAnimations = true,
+  minBodyHeight = 0,
   renderLine,
   renderRect,
 }: CandlestickChartCandleProps) => {
@@ -121,6 +136,28 @@ export const CandlestickChartCandle = ({
       candle,
     ]
   );
+  const rawHeight = Number(rectProps.height) || 0;
+  const isTiny = rawHeight < minBodyHeight;
+  const adjustedHeight = isTiny ? minBodyHeight : rawHeight;
+  const adjustedY = isTiny
+    ? Number(rectProps.y) - (minBodyHeight - rawHeight) / 2
+    : Number(rectProps.y);
+  const rectOptions: CandlestickChartRenderRectOptions = {
+    x: Number(rectProps.x),
+    y: adjustedY,
+    width: Number(rectProps.width),
+    height: adjustedHeight,
+    rawHeight,
+    fill: rectProps.fill,
+    opacity: typeof rectProps.opacity === 'number' ? rectProps.opacity : 1,
+    rx: rectProps.rx,
+    ry: rectProps.ry,
+    isPositive,
+    isTiny,
+    useAnimations,
+    candle,
+  };
+
   if (renderLine || renderRect) {
     return (
       <>
@@ -128,13 +165,14 @@ export const CandlestickChartCandle = ({
           ...lineProps,
           useAnimations,
         })}
-        {(renderRect ?? (() => null))({
-          ...rectProps,
-          useAnimations,
-        })}
+        {(renderRect ?? (() => null))(rectOptions)}
       </>
     );
   }
+
+  const radiusX = rectProps.rx ?? 0;
+  const radiusY = rectProps.ry ?? 0;
+  const hasRoundedCorners = radiusX > 0 || radiusY > 0;
 
   return (
     <Group>
@@ -145,14 +183,26 @@ export const CandlestickChartCandle = ({
         strokeWidth={lineProps.strokeWidth}
         opacity={lineProps.opacity}
       />
-      <Rect
-        x={rectProps.x}
-        y={rectProps.y}
-        width={rectProps.width}
-        height={rectProps.height}
-        color={String(rectProps.fill)}
-        opacity={typeof rectProps.opacity === 'number' ? rectProps.opacity : 1}
-      />
+      {hasRoundedCorners ? (
+        <RoundedRect
+          x={rectOptions.x}
+          y={rectOptions.y}
+          width={rectOptions.width}
+          height={rectOptions.height}
+          r={vec(radiusX, radiusY)}
+          color={String(rectOptions.fill)}
+          opacity={rectOptions.opacity}
+        />
+      ) : (
+        <Rect
+          x={rectOptions.x}
+          y={rectOptions.y}
+          width={rectOptions.width}
+          height={rectOptions.height}
+          color={String(rectOptions.fill)}
+          opacity={rectOptions.opacity}
+        />
+      )}
     </Group>
   );
 };
