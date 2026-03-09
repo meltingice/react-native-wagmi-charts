@@ -1,11 +1,12 @@
 import React from 'react';
-import { Svg, SvgProps } from 'react-native-svg';
+import { Canvas } from '@shopify/react-native-skia';
+import { ViewProps } from 'react-native';
 
 import { CandlestickChartDimensionsContext } from './Chart';
 import { CandlestickChartCandle, CandlestickChartCandleProps } from './Candle';
 import { useCandlestickChart } from './useCandlestickChart';
 
-type CandlestickChartCandlesProps = SvgProps & {
+type CandlestickChartCandlesProps = ViewProps & {
   width?: number;
   height?: number;
   margin?: CandlestickChartCandleProps['margin'];
@@ -35,7 +36,7 @@ export function CandlestickChartCandles({
   const { data, domain, step } = useCandlestickChart();
 
   return (
-    <Svg width={width} height={height} {...props}>
+    <Canvas style={[{ width, height }, props.style]}>
       {step > 0 &&
         data.map((candle, index) => (
           <CandlestickChartCandle
@@ -56,6 +57,6 @@ export function CandlestickChartCandles({
             {...candleProps}
           />
         ))}
-    </Svg>
+    </Canvas>
   );
 }

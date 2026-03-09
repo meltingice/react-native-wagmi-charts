@@ -1,16 +1,18 @@
 import React from 'react';
 import { ColorValue } from 'react-native';
-import Animated, {
-  withTiming,
-  useAnimatedProps,
-} from 'react-native-reanimated';
-import { Line, LineProps, NumberProp, Rect, RectProps } from 'react-native-svg';
+import {
+  Group,
+  Line,
+  Rect,
+  vec,
+} from '@shopify/react-native-skia';
 
 import type { TCandle, TDomain } from './types';
 import { getY, getHeight } from './utils';
-
-const AnimatedRect = Animated.createAnimatedComponent(Rect);
-const AnimatedLine = Animated.createAnimatedComponent(Line);
+import {
+  type CompatibleLineProps,
+  type CompatiblePathProps,
+} from '../skia/compat';
 
 export type CandlestickChartCandleProps = {
   candle: TCandle;
@@ -21,25 +23,29 @@ export type CandlestickChartCandleProps = {
   negativeColor?: string;
   index: number;
   width: number;
-  rectProps?: RectProps;
-  lineProps?: LineProps;
+  rectProps?: CompatiblePathProps & {
+    fill?: string;
+    rx?: number;
+    ry?: number;
+  };
+  lineProps?: CompatibleLineProps;
   useAnimations?: boolean;
   renderRect?: (renderRectOptions: {
-    x: NumberProp;
-    y: NumberProp;
-    width: NumberProp;
-    height: NumberProp;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
     fill: ColorValue;
     useAnimations: boolean;
     candle: TCandle;
   }) => React.ReactNode;
   renderLine?: (renderLineOptions: {
-    x1: NumberProp;
-    y1: NumberProp;
-    x2: NumberProp;
-    y2: NumberProp;
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
     stroke: ColorValue;
-    strokeWidth: NumberProp;
+    strokeWidth: number;
     useAnimations: boolean;
     candle: TCandle;
   }) => React.ReactNode;
@@ -57,10 +63,8 @@ export const CandlestickChartCandle = ({
   index,
   width,
   useAnimations = true,
-  renderLine = (props) =>
-    props.useAnimations ? <AnimatedLine {...props} /> : <Line {...props} />,
-  renderRect = (props) =>
-    props.useAnimations ? <AnimatedRect {...props} /> : <Rect {...props} />,
+  renderLine,
+  renderRect,
 }: CandlestickChartCandleProps) => {
   const { close, open, high, low } = candle;
   const isPositive = close > open;
@@ -73,7 +77,6 @@ export const CandlestickChartCandle = ({
     () => ({
       stroke: fill,
       strokeWidth: 1,
-      direction: isPositive ? 'positive' : 'negative',
       x1: x + width / 2,
       y1: getY({ maxHeight, value: low, domain }),
       x2: x + width / 2,
@@ -94,18 +97,10 @@ export const CandlestickChartCandle = ({
       candle,
     ]
   );
-  const animatedLineProps = useAnimatedProps(() => ({
-    x1: withTiming(x + width / 2),
-    y1: withTiming(getY({ maxHeight, value: low, domain })),
-    x2: withTiming(x + width / 2),
-    y2: withTiming(getY({ maxHeight, value: high, domain })),
-  }));
-
   const rectProps = React.useMemo(
     () => ({
       width: width - margin * 2,
       fill: fill,
-      direction: isPositive ? 'positive' : 'negative',
       x: x + margin,
       y: getY({ maxHeight, value: max, domain }),
       height: getHeight({ maxHeight, value: max - min, domain }),
@@ -126,24 +121,38 @@ export const CandlestickChartCandle = ({
       candle,
     ]
   );
-  const animatedRectProps = useAnimatedProps(() => ({
-    x: withTiming(x + margin),
-    y: withTiming(getY({ maxHeight, value: max, domain })),
-    height: withTiming(getHeight({ maxHeight, value: max - min, domain })),
-  }));
+  if (renderLine || renderRect) {
+    return (
+      <>
+        {(renderLine ?? (() => null))({
+          ...lineProps,
+          useAnimations,
+        })}
+        {(renderRect ?? (() => null))({
+          ...rectProps,
+          useAnimations,
+        })}
+      </>
+    );
+  }
 
   return (
-    <>
-      {renderLine({
-        ...lineProps,
-        useAnimations,
-        ...(useAnimations ? { animatedProps: animatedLineProps } : {}),
-      })}
-      {renderRect({
-        ...rectProps,
-        useAnimations,
-        ...(useAnimations ? { animatedProps: animatedRectProps } : {}),
-      })}
-    </>
+    <Group>
+      <Line
+        p1={vec(lineProps.x1, lineProps.y1)}
+        p2={vec(lineProps.x2, lineProps.y2)}
+        color={String(lineProps.stroke)}
+        strokeWidth={lineProps.strokeWidth}
+        opacity={lineProps.opacity}
+      />
+      <Rect
+        x={rectProps.x}
+        y={rectProps.y}
+        width={rectProps.width}
+        height={rectProps.height}
+        color={String(rectProps.fill)}
+        opacity={typeof rectProps.opacity === 'number' ? rectProps.opacity : 1}
+      />
+    </Group>
   );
 };

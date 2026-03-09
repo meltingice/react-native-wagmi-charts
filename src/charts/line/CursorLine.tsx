@@ -1,11 +1,15 @@
 import React from 'react';
 import { StyleSheet, type TextStyle } from 'react-native';
+import {
+  Canvas,
+  DashPathEffect,
+  Line,
+  vec,
+} from '@shopify/react-native-skia';
 import Animated, {
   useAnimatedStyle,
   useDerivedValue,
-  useAnimatedProps,
 } from 'react-native-reanimated';
-import Svg, { type LineProps, Line as SVGLine } from 'react-native-svg';
 
 import type { TFormatterFn } from '../../types';
 import { AnimatedText } from '../../components/AnimatedText';
@@ -14,11 +18,12 @@ import { LineChartCursor, type LineChartCursorProps } from './Cursor';
 import { useLineChartDatetime } from './useDatetime';
 import { useLineChart } from './useLineChart';
 import { useLineChartPrice } from './usePrice';
+import { type CompatibleLineProps } from '../skia/compat';
 
 type LineChartCursorLineProps = {
   children?: React.ReactNode;
   color?: string;
-  lineProps?: Partial<LineProps>;
+  lineProps?: CompatibleLineProps;
   format?: TFormatterFn<string | number>;
   textStyle?: TextStyle;
   persistOnEnd?: boolean;
@@ -43,8 +48,6 @@ const SPACING = {
   X_AXIS_LABEL_RESERVED_HEIGHT: 40, // Reserved space at bottom for x-axis labels
 } as const;
 
-const AnimatedLine = Animated.createAnimatedComponent(SVGLine);
-
 export function LineChartCursorLine({
   children,
   color = 'gray',
@@ -65,6 +68,18 @@ export function LineChartCursorLine({
   const datetime = useLineChartDatetime({
     format: !isHorizontal ? (format as TFormatterFn<number>) : undefined,
   });
+  const dashIntervals = React.useMemo(() => {
+    const strokeDasharray = lineProps?.strokeDasharray ?? '3 3';
+
+    if (Array.isArray(strokeDasharray)) {
+      return strokeDasharray;
+    }
+
+    return strokeDasharray
+      .split(/[ ,]+/)
+      .map((value: string) => Number(value))
+      .filter((value: number) => !Number.isNaN(value));
+  }, [lineProps?.strokeDasharray]);
 
   const displayText = isHorizontal ? price.formatted : datetime.formatted;
 
@@ -186,28 +201,28 @@ export function LineChartCursorLine({
     };
   });
 
-  const lineAnimatedProps = useAnimatedProps(
-    () => ({
-      x1: 0,
-      y1: 0,
-      x2: lineEndX.value,
-      y2: lineEndY.value,
-    }),
+  const p1 = useDerivedValue(() => vec(0, 0), []);
+  const p2 = useDerivedValue(
+    () => vec(lineEndX.value, lineEndY.value),
     [lineEndX, lineEndY]
   );
+  const { strokeDasharray: _strokeDasharray, ...skiaLineProps } = lineProps ?? {};
 
   return (
     <LineChartCursor {...cursorProps} type="line">
       <Animated.View style={containerStyle}>
-        <Svg style={styles.svg}>
-          <AnimatedLine
-            animatedProps={lineAnimatedProps}
-            strokeWidth={2}
-            stroke={color}
-            strokeDasharray="3 3"
-            {...lineProps}
-          />
-        </Svg>
+        <Canvas style={styles.svg}>
+          <Line
+            p1={p1}
+            p2={p2}
+            color={color}
+            strokeWidth={lineProps?.strokeWidth ?? 2}
+            opacity={lineProps?.opacity}
+            {...skiaLineProps}
+          >
+            {dashIntervals.length > 0 && <DashPathEffect intervals={dashIntervals} />}
+          </Line>
+        </Canvas>
         <AnimatedText text={displayText} style={textPositionStyle} />
       </Animated.View>
       {children}

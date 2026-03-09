@@ -3,16 +3,24 @@ import * as d3Shape from 'd3-shape';
 
 import { Dimensions, StyleSheet, View, ViewProps } from 'react-native';
 import { LineChartIdProvider, useLineChartData } from './Data';
-import { Path, parse } from 'react-native-redash';
-import { getArea, getPath } from './utils';
+import { getArea, getComputedPath, getPath, getPoints } from './utils';
 
 import { LineChartContext } from './Context';
+import type { TLineChartComputedPath } from './types';
+
+const EMPTY_COMPUTED_PATH: TLineChartComputedPath = {
+  move: { x: 0, y: 0 },
+  curves: [],
+  points: [],
+  samples: [],
+  length: 0,
+};
 
 export const LineChartDimensionsContext = React.createContext({
   width: 0,
   height: 0,
   pointWidth: 0,
-  parsedPath: {} as Path,
+  parsedPath: EMPTY_COMPUTED_PATH,
   path: '',
   area: '',
   shape: d3Shape.curveBumpX,
@@ -94,7 +102,25 @@ export function LineChart({
     return '';
   }, [data, pathWidth, chartDrawingHeight, yGutter, shape, yDomain, xDomain]);
 
-  const parsedPath = React.useMemo(() => parse(path), [path]);
+  const points = React.useMemo(() => {
+    if (data && data.length > 0) {
+      return getPoints({
+        data,
+        width: pathWidth,
+        height: chartDrawingHeight,
+        gutter: yGutter,
+        yDomain,
+        xDomain,
+      });
+    }
+
+    return [];
+  }, [data, pathWidth, chartDrawingHeight, yGutter, yDomain, xDomain]);
+
+  const parsedPath = React.useMemo(
+    () => getComputedPath({ path, points }),
+    [path, points]
+  );
   const pointWidth = React.useMemo(
     () => width / (data ? data.length - 1 : 1),
     [data, width]
@@ -124,6 +150,39 @@ export function LineChart({
       shape,
     ]
   );
+
+  React.useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+
+    const firstPoint = points[0];
+    const lastPoint = points[points.length - 1];
+
+    console.log('[react-native-wagmi-charts][LineChart]', {
+      dataLength: data?.length ?? 0,
+      width,
+      height,
+      pathWidth,
+      chartDrawingHeight,
+      yDomain,
+      pathLength: path.length,
+      areaLength: area.length,
+      pointsLength: points.length,
+      firstPoint,
+      lastPoint,
+    });
+  }, [
+    area.length,
+    chartDrawingHeight,
+    data,
+    height,
+    path.length,
+    pathWidth,
+    points,
+    width,
+    yDomain,
+  ]);
 
   return (
     <LineChartIdProvider id={id}>

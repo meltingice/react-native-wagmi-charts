@@ -64,7 +64,7 @@ export function LineChartCursor({
   }: {
     xPosition: number;
   }) => {
-    if (!parsedPath) {
+    if (!parsedPath.points.length) {
       return;
     }
 
@@ -72,17 +72,8 @@ export function LineChartCursor({
     const xRelative = scaleX.invert(xPosition);
 
     const closestIndex = bisectCenter(xValues, xRelative);
-    const pathDataDelta = Math.abs(parsedPath.curves.length - xValues.length); // sometimes there is a difference between data length and number of path curves.
-    const closestPathCurve = Math.max(
-      Math.min(closestIndex, parsedPath.curves.length + 1) - pathDataDelta,
-      0
-    );
-
-    const curveSegment =
-      closestIndex > 0 && parsedPath.curves[closestPathCurve]
-        ? parsedPath.curves[closestPathCurve]
-        : null;
-    const newXPosition = (curveSegment ? curveSegment.to : parsedPath.move).x;
+    const chartPoint = parsedPath.points[closestIndex] ?? parsedPath.points[0];
+    const newXPosition = chartPoint?.x ?? 0;
     // Update values
     currentIndex.value = closestIndex;
     currentX.value = newXPosition;
@@ -98,7 +89,7 @@ export function LineChartCursor({
 
   const updatePosition = (xPosition: number) => {
     'worklet';
-    if (parsedPath) {
+    if (parsedPath.points.length) {
       // on Web, we could drag the cursor to be negative, breaking it
       // so we clamp the index at 0 to fix it
       // https://github.com/coinjar/react-native-wagmi-charts/issues/24

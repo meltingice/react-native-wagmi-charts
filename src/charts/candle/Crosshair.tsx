@@ -13,12 +13,16 @@ import Animated, {
   runOnJS,
   AnimatedProps,
 } from 'react-native-reanimated';
-import { clamp } from 'react-native-redash';
 
 import { CandlestickChartDimensionsContext } from './Chart';
 import { CandlestickChartLine, CandlestickChartLineProps } from './Line';
 import { useCandlestickChart } from './useCandlestickChart';
 import { CandlestickChartCrosshairTooltipContext } from './CrosshairTooltip';
+
+function clampValue(value: number, min: number, max: number) {
+  'worklet';
+  return Math.min(Math.max(value, min), max);
+}
 
 /**
  * Threshold in pixels from the left edge of the chart. When the cursor is
@@ -58,7 +62,7 @@ export function CandlestickChartCrosshair({
     } else {
       tooltipPosition.value = 'left';
     }
-    currentY.value = clamp(y, 0, height);
+    currentY.value = clampValue(y, 0, height);
     currentX.value = boundedX - (boundedX % step) + step / 2;
     currentIndex.value = Math.floor(boundedX / step);
   };

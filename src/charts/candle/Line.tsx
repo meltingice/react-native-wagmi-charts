@@ -1,8 +1,17 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import Svg, { Line as SVGLine, LineProps } from 'react-native-svg';
+import {
+  Canvas,
+  DashPathEffect,
+  Line as SkiaLine,
+  vec,
+} from '@shopify/react-native-skia';
+import {
+  type CompatibleLineProps,
+  getDashIntervals,
+} from '../skia/compat';
 
-export type CandlestickChartLineProps = Omit<LineProps, 'x' | 'y'> & {
+export type CandlestickChartLineProps = CompatibleLineProps & {
   color?: string;
   x: number;
   y: number;
@@ -12,20 +21,25 @@ export const CandlestickChartLine = ({
   color = 'gray',
   x,
   y,
+  strokeDasharray = '6 6',
   ...props
 }: CandlestickChartLineProps) => {
+  const dashIntervals = React.useMemo(
+    () => getDashIntervals(strokeDasharray),
+    [strokeDasharray]
+  );
+
   return (
-    <Svg style={StyleSheet.absoluteFill}>
-      <SVGLine
-        x1={0}
-        y1={0}
-        x2={x}
-        y2={y}
-        strokeWidth={2}
-        stroke={color}
-        strokeDasharray="6 6"
+    <Canvas style={StyleSheet.absoluteFill}>
+      <SkiaLine
+        p1={vec(0, 0)}
+        p2={vec(x, y)}
+        color={color}
+        strokeWidth={props.strokeWidth ?? 2}
         {...props}
-      />
-    </Svg>
+      >
+        {dashIntervals && <DashPathEffect intervals={dashIntervals} />}
+      </SkiaLine>
+    </Canvas>
   );
 };

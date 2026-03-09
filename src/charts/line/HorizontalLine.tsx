@@ -1,21 +1,16 @@
-import Animated, {
-  useAnimatedProps,
-  useDerivedValue,
-  withTiming,
-} from 'react-native-reanimated';
-import { LineProps, Line as SVGLine } from 'react-native-svg';
+import { useDerivedValue, withTiming } from 'react-native-reanimated';
+import { DashPathEffect, Line, vec } from '@shopify/react-native-skia';
 
 import { LineChartDimensionsContext } from './Chart';
 import React from 'react';
 import { getXPositionForCurve } from './utils/getXPositionForCurve';
-import { getYForX } from 'react-native-redash';
 import { useLineChart } from './useLineChart';
-
-const AnimatedLine = Animated.createAnimatedComponent(SVGLine);
+import { type CompatibleLineProps, getDashIntervals } from '../skia/compat';
+import { getYForX } from './utils';
 
 type HorizontalLineProps = {
   color?: string;
-  lineProps?: Partial<LineProps>;
+  lineProps?: CompatibleLineProps;
   offsetY?: number;
   /**
    * (Optional) A pixel value to nudge the line up or down.
@@ -79,24 +74,24 @@ export function LineChartHorizontalLine({
 
     return withTiming(offsetTopPixels + offsetY);
   }, [at, gutter, height, offsetY, parsedPath, yDomain.max, yDomain.min]);
-
-  const lineAnimatedProps = useAnimatedProps(
-    () => ({
-      x1: 0,
-      x2: width,
-      y1: y.value,
-      y2: y.value,
-    }),
-    [width, y]
+  const dashIntervals = React.useMemo(
+    () => getDashIntervals(lineProps.strokeDasharray ?? '3 3'),
+    [lineProps.strokeDasharray]
   );
+  const p1 = useDerivedValue(() => vec(0, y.value), [y]);
+  const p2 = useDerivedValue(() => vec(width, y.value), [width, y]);
+  const { strokeDasharray: _strokeDasharray, ...skiaLineProps } = lineProps;
 
   return (
-    <AnimatedLine
-      animatedProps={lineAnimatedProps}
-      strokeWidth={2}
-      stroke={color}
-      strokeDasharray="3 3"
-      {...lineProps}
-    />
+    <Line
+      p1={p1}
+      p2={p2}
+      color={color}
+      strokeWidth={lineProps.strokeWidth ?? 2}
+      opacity={lineProps.opacity}
+      {...skiaLineProps}
+    >
+      {dashIntervals && <DashPathEffect intervals={dashIntervals} />}
+    </Line>
   );
 }

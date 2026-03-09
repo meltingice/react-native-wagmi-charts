@@ -14,7 +14,7 @@ import { CursorContext } from './Cursor';
 import { LineChartDimensionsContext } from './Chart';
 import type { LayoutChangeEvent, ViewProps } from 'react-native';
 import { getXPositionForCurve } from './utils/getXPositionForCurve';
-import { getYForX } from 'react-native-redash';
+import { getYForX } from './utils';
 import { useLineChart } from './useLineChart';
 import { useMemo } from 'react';
 import type { TFormatterFn } from '../../types';

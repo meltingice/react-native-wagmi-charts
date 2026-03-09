@@ -1,19 +1,16 @@
-import type { Path } from 'react-native-redash';
+import type { TLineChartComputedPath } from '../types';
 
-export function getXPositionForCurve(path: Path, index: number) {
+export function getXPositionForCurve(path: TLineChartComputedPath, index: number) {
   'worklet';
-  if (index === 0) {
-    return path.move.x;
-  }
-
-  const point = path.curves[index - 1];
-
-  if (point === undefined) {
+  if (index < 0 || index >= path.points.length) {
     throw new Error(
       `Index out of bounds: ${index}. ` +
-        `Expected an integer in the range [0, ${path.curves.length}]`
+        `Expected an integer in the range [0, ${Math.max(
+          path.points.length - 1,
+          0
+        )}]`
     );
   }
 
-  return point.to.x;
+  return path.points[index]!.x;
 }

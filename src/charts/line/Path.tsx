@@ -1,17 +1,20 @@
 import * as React from 'react';
-import Animated, { AnimatedProps } from 'react-native-reanimated';
-import { Path, PathProps } from 'react-native-svg';
+import { DashPathEffect, Group, Line, vec } from '@shopify/react-native-skia';
 import { LineChartDimensionsContext } from './Chart';
 import { LineChartPathContext } from './LineChartPathContext';
-import { useAnimatedPath } from './useAnimatedPath';
+import type { TLineChartComputedPath } from './types';
+import {
+  type CompatiblePathProps,
+  getDashIntervals,
+  getOpacity,
+} from '../skia/compat';
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-
-export type LineChartPathProps = AnimatedProps<PathProps> & {
+export type LineChartPathProps = CompatiblePathProps & {
   color?: string;
   inactiveColor?: string;
   width?: number;
   isInactive?: boolean;
+  computedPath?: TLineChartComputedPath;
   /**
    * Default: `true`.
    *
@@ -36,25 +39,71 @@ export function LineChartPath({
   color = 'black',
   inactiveColor,
   width: strokeWidth = 3,
-  ...props
+  strokeDasharray,
+  opacity,
+  strokeOpacity,
+  strokeLinecap,
+  strokeLinejoin,
+  strokeMiterlimit,
+  computedPath,
+  isTransitionEnabled: _isTransitionEnabled,
+  isInactive: isInactiveProp,
 }: LineChartPathProps) {
-  const { path } = React.useContext(LineChartDimensionsContext);
-  const { isTransitionEnabled, isInactive } =
-    React.useContext(LineChartPathContext);
+  void _isTransitionEnabled;
+  void strokeLinejoin;
+  void strokeMiterlimit;
+  const { parsedPath: contextPath } = React.useContext(LineChartDimensionsContext);
+  const { isInactive: contextIsInactive } = React.useContext(LineChartPathContext);
+  const points = (computedPath ?? contextPath).points;
+  const resolvedInactive = isInactiveProp ?? contextIsInactive;
+  const dashIntervals = React.useMemo(
+    () => getDashIntervals(strokeDasharray),
+    [strokeDasharray]
+  );
+  const resolvedOpacity = getOpacity(
+    {
+      opacity,
+      strokeOpacity,
+    },
+    resolvedInactive && !inactiveColor ? 0.2 : 1
+  );
 
-  const { animatedProps } = useAnimatedPath({
-    enabled: isTransitionEnabled,
-    path,
-  });
+  React.useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+
+    console.log('[react-native-wagmi-charts][LineChartPath]', {
+      pointsLength: points.length,
+      strokeWidth,
+      color: resolvedInactive ? inactiveColor || color : color,
+      opacity: resolvedOpacity,
+      dashIntervals,
+    });
+  }, [color, dashIntervals, inactiveColor, points.length, resolvedInactive, resolvedOpacity, strokeWidth]);
 
   return (
-    <AnimatedPath
-      animatedProps={animatedProps}
-      fill="transparent"
-      stroke={isInactive ? inactiveColor || color : color}
-      strokeOpacity={isInactive && !inactiveColor ? 0.2 : 1}
-      strokeWidth={strokeWidth}
-      {...props}
-    />
+    <Group>
+      {points.slice(1).map((point: TLineChartComputedPath['points'][number], index: number) => {
+        const previousPoint = points[index];
+        if (!previousPoint) {
+          return null;
+        }
+
+        return (
+          <Line
+            key={`${index}-${point.x}-${point.y}`}
+            p1={vec(previousPoint.x, previousPoint.y)}
+            p2={vec(point.x, point.y)}
+            color={resolvedInactive ? inactiveColor || color : color}
+            strokeWidth={strokeWidth}
+            opacity={resolvedOpacity}
+            strokeCap={strokeLinecap}
+          >
+            {dashIntervals && <DashPathEffect intervals={dashIntervals} />}
+          </Line>
+        );
+      })}
+    </Group>
   );
 }

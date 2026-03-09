@@ -1,78 +1,59 @@
 import * as React from 'react';
-import Animated, { AnimatedProps } from 'react-native-reanimated';
-import { Defs, LinearGradient, Stop, Path, PathProps } from 'react-native-svg';
+import {
+  LinearGradient,
+  Path,
+  vec,
+} from '@shopify/react-native-skia';
 import { LineChartDimensionsContext } from './Chart';
 import { LineChartPathContext } from './LineChartPathContext';
-import { useAnimatedPath } from './useAnimatedPath';
+import {
+  type CompatiblePathProps,
+  getGradientStops,
+  getOpacity,
+  makeSkAreaPathFromPoints,
+} from '../skia/compat';
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-
-export type LineChartGradientProps = AnimatedProps<PathProps> & {
+export type LineChartGradientProps = CompatiblePathProps & {
   color?: string;
   children?: React.ReactNode;
 };
-
-let id = 0;
 
 LineChartGradient.displayName = 'LineChartGradient';
 
 export function LineChartGradient({
   color: overrideColor = undefined,
   children,
+  opacity,
+  fillOpacity,
   ...props
 }: LineChartGradientProps) {
-  const { area } = React.useContext(LineChartDimensionsContext);
-  const { color: contextColor, isTransitionEnabled } =
-    React.useContext(LineChartPathContext);
+  const { height, parsedPath } = React.useContext(LineChartDimensionsContext);
+  const { color: contextColor } = React.useContext(LineChartPathContext);
   const color = overrideColor || contextColor;
-
-  ////////////////////////////////////////////////
-
-  const { animatedProps } = useAnimatedPath({
-    enabled: isTransitionEnabled,
-    path: area,
-  });
-
-  ////////////////////////////////////////////////
-
-  const localId = React.useRef(++id);
-
-  ////////////////////////////////////////////////
+  const skAreaPath = React.useMemo(
+    () => makeSkAreaPathFromPoints(parsedPath.points, height),
+    [height, parsedPath.points]
+  );
+  const gradientStops = React.useMemo(
+    () => getGradientStops(children, color),
+    [children, color]
+  );
+  const resolvedOpacity = getOpacity(
+    {
+      opacity,
+      fillOpacity,
+    },
+    1
+  );
 
   return (
-    <>
-      {children ? (
-        <Defs>
-          <LinearGradient
-            id={`${localId.current}`}
-            x1="0"
-            x2="0"
-            y1="0"
-            y2="100%"
-          >
-            {children as React.ReactElement[]}
-          </LinearGradient>
-        </Defs>
-      ) : (
-        <Defs>
-          <LinearGradient
-            id={`${localId.current}`}
-            x1="0"
-            x2="0"
-            y1="0"
-            y2="100%"
-          >
-            <Stop offset="20%" stopColor={color} stopOpacity={0.15} />
-            <Stop offset="40%" stopColor={color} stopOpacity={0.05} />
-            <Stop offset="100%" stopColor={color} stopOpacity={0} />
-          </LinearGradient>
-        </Defs>
-      )}
-      <AnimatedPath
-        animatedProps={animatedProps}
-        fill={`url(#${localId.current})`}
-        {...props}
+    <Path path={skAreaPath} opacity={resolvedOpacity} {...props}>
+      <LinearGradient
+        start={vec(0, 0)}
+        end={vec(0, height)}
+        colors={gradientStops.map((stop) => stop.color)}
+        positions={gradientStops.map((stop) => stop.position)}
       />
-    </>
+    </Path>
   );
 }

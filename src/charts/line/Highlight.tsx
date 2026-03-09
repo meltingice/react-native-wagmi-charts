@@ -1,14 +1,21 @@
 import * as React from 'react';
-import Animated, { AnimatedProps } from 'react-native-reanimated';
-import { ClipPath, Defs, G, Path, PathProps, Rect } from 'react-native-svg';
+import {
+  DashPathEffect,
+  rect,
+  Group,
+  Line,
+  vec,
+} from '@shopify/react-native-skia';
 import { LineChartDimensionsContext } from './Chart';
 import { LineChartPathContext } from './LineChartPathContext';
-import { useAnimatedPath } from './useAnimatedPath';
 import { getXPositionForCurve } from './utils/getXPositionForCurve';
+import {
+  type CompatiblePathProps,
+  getDashIntervals,
+  getOpacity,
+} from '../skia/compat';
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-
-export type LineChartColorProps = AnimatedProps<PathProps> & {
+export type LineChartColorProps = CompatiblePathProps & {
   color?: string;
   from: number;
   to: number;
@@ -26,54 +33,64 @@ export function LineChartHighlight({
   from,
   to,
   width: strokeWidth = 3,
+  opacity,
+  strokeOpacity,
+  strokeLinecap,
+  strokeLinejoin,
+  strokeMiterlimit,
   ...props
 }: LineChartColorProps) {
-  const { path, parsedPath, height } = React.useContext(
+  const { parsedPath, height } = React.useContext(
     LineChartDimensionsContext
   );
-  const { isTransitionEnabled, isInactive: _isInactive } =
-    React.useContext(LineChartPathContext);
+  const { isInactive: _isInactive } = React.useContext(LineChartPathContext);
   const isInactive = showInactiveColor && _isInactive;
-
-  ////////////////////////////////////////////////
-
-  const { animatedProps } = useAnimatedPath({
-    enabled: isTransitionEnabled,
-    path,
-  });
-
-  ////////////////////////////////////////////////
-
-  const clipId = React.useMemo(
-    () => `clip-${Math.random().toString(36).substring(2, 11)}`,
-    []
-  );
+  const points = parsedPath.points;
 
   const clipStart = getXPositionForCurve(parsedPath, from);
   const clipEnd = getXPositionForCurve(parsedPath, to);
+  const clipRect = React.useMemo(
+    () => rect(clipStart, 0, clipEnd - clipStart, height),
+    [clipEnd, clipStart, height]
+  );
+  const resolvedOpacity = getOpacity(
+    {
+      opacity,
+      strokeOpacity,
+    },
+    isInactive && !inactiveColor ? 0.5 : 1
+  );
+  const dashIntervals = React.useMemo(
+    () => getDashIntervals(props.strokeDasharray),
+    [props.strokeDasharray]
+  );
+  const highlightedPoints = React.useMemo(
+    () => points.slice(from, to + 1),
+    [from, points, to]
+  );
 
   return (
-    <G>
-      <Defs>
-        <ClipPath id={clipId}>
-          <Rect
-            x={clipStart}
-            y="0"
-            width={clipEnd - clipStart}
-            height={height}
-            fill="white"
-          />
-        </ClipPath>
-      </Defs>
-      <AnimatedPath
-        clipPath={`url(#${clipId})`}
-        animatedProps={animatedProps}
-        fill="transparent"
-        stroke={isInactive ? inactiveColor || color : color}
-        strokeWidth={strokeWidth}
-        strokeOpacity={isInactive && !inactiveColor ? 0.5 : 1}
-        {...props}
-      />
-    </G>
+    <Group clip={clipRect}>
+      {highlightedPoints.slice(1).map((point, index) => {
+        const previousPoint = highlightedPoints[index];
+        if (!previousPoint) {
+          return null;
+        }
+
+        return (
+          <Line
+            key={`${index}-${point.x}-${point.y}`}
+            p1={vec(previousPoint.x, previousPoint.y)}
+            p2={vec(point.x, point.y)}
+            color={isInactive ? inactiveColor || color : color}
+            strokeWidth={strokeWidth}
+            opacity={resolvedOpacity}
+            strokeCap={strokeLinecap}
+          >
+            {dashIntervals && <DashPathEffect intervals={dashIntervals} />}
+          </Line>
+        );
+      })}
+    </Group>
   );
 }

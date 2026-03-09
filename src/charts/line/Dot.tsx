@@ -1,31 +1,31 @@
 import React from 'react';
 
-import Animated, {
+import {
+  Circle,
+} from '@shopify/react-native-skia';
+import {
   Easing,
-  useAnimatedProps,
   useDerivedValue,
   withRepeat,
   withSequence,
   withTiming,
   AnimatedProps,
 } from 'react-native-reanimated';
-import { Circle, CircleProps } from 'react-native-svg';
 
 import { LineChartDimensionsContext } from './Chart';
 import { LineChartPathContext } from './LineChartPathContext';
-import { getXPositionForCurve } from './utils/getXPositionForCurve';
-import { getYForX } from 'react-native-redash';
+import type { TLineChartComputedPath } from './types';
 import { useLineChart } from './useLineChart';
-
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+import { type CompatibleCircleProps } from '../skia/compat';
 
 export type LineChartDotProps = {
-  dotProps?: AnimatedProps<CircleProps>;
-  outerDotProps?: AnimatedProps<CircleProps>;
+  dotProps?: AnimatedProps<CompatibleCircleProps>;
+  outerDotProps?: AnimatedProps<CompatibleCircleProps>;
   color?: string;
   inactiveColor?: string;
   showInactiveColor?: boolean;
   at: number;
+  computedPath?: TLineChartComputedPath;
   size?: number;
   hasPulse?: boolean;
   hasOuterDot?: boolean;
@@ -49,6 +49,7 @@ LineChartDot.displayName = 'LineChartDot';
 export function LineChartDot({
   at,
   color: defaultColor = 'black',
+  computedPath,
   dotProps,
   hasOuterDot: defaultHasOuterDot = false,
   hasPulse = false,
@@ -61,7 +62,9 @@ export function LineChartDot({
   outerSize = size * 4,
 }: LineChartDotProps) {
   const { isActive } = useLineChart();
-  const { parsedPath } = React.useContext(LineChartDimensionsContext);
+  const { parsedPath: contextPath } = React.useContext(LineChartDimensionsContext);
+  const points = (computedPath ?? contextPath).points ?? [];
+  const point = points[at];
 
   ////////////////////////////////////////////////////////////
 
@@ -73,42 +76,15 @@ export function LineChartDot({
 
   ////////////////////////////////////////////////////////////
 
-  const x = useDerivedValue(() => {
-    return withTiming(getXPositionForCurve(parsedPath, at));
-  }, [at, parsedPath]);
-
-  const y = useDerivedValue(
-    () => withTiming(getYForX(parsedPath!, x.value) || 0),
-    [parsedPath, x]
-  );
-
-  ////////////////////////////////////////////////////////////
-
-  const animatedDotProps = useAnimatedProps(
-    () => ({
-      cx: x.value,
-      cy: y.value,
-    }),
-    [x, y]
-  );
-
-  const animatedOuterDotProps = useAnimatedProps(() => {
-    const defaultProps = {
-      cx: x.value,
-      cy: y.value,
-      opacity: 0.1,
-      r: outerSize,
-    };
+  const outerOpacity = useDerivedValue(() => {
+    const defaultOpacity = 0.1;
 
     if (!hasPulse) {
-      return defaultProps;
+      return defaultOpacity;
     }
 
     if (isActive.value && pulseBehaviour === 'while-inactive') {
-      return {
-        ...defaultProps,
-        r: 0,
-      };
+      return 0;
     }
 
     const easing = Easing.out(Easing.sin);
@@ -124,6 +100,25 @@ export function LineChartDot({
       -1,
       false
     );
+
+    if (pulseBehaviour === 'while-inactive') {
+      return isActive.value ? withTiming(0) : animatedOpacity;
+    }
+
+    return animatedOpacity;
+  }, [hasPulse, isActive, pulseBehaviour, pulseDurationMs]);
+  const outerRadius = useDerivedValue(() => {
+    const defaultRadius = outerSize;
+
+    if (!hasPulse) {
+      return defaultRadius;
+    }
+
+    if (isActive.value && pulseBehaviour === 'while-inactive') {
+      return 0;
+    }
+
+    const easing = Easing.out(Easing.sin);
     const scale = withRepeat(
       withSequence(
         withTiming(0),
@@ -138,35 +133,33 @@ export function LineChartDot({
     );
 
     if (pulseBehaviour === 'while-inactive') {
-      return {
-        ...defaultProps,
-        opacity: isActive.value ? withTiming(0) : animatedOpacity,
-        r: isActive.value ? withTiming(0) : scale,
-      };
+      return isActive.value ? withTiming(0) : scale;
     }
-    return {
-      ...defaultProps,
-      opacity: animatedOpacity,
-      r: scale,
-    };
-  }, [hasPulse, isActive, outerSize, pulseBehaviour, pulseDurationMs, x, y]);
+    return scale;
+  }, [hasPulse, isActive, outerSize, pulseBehaviour, pulseDurationMs]);
+  const resolvedOpacity =
+    typeof dotProps?.opacity === 'number' ? dotProps.opacity : opacity;
 
   ////////////////////////////////////////////////////////////
 
   return (
     <>
-      <AnimatedCircle
-        animatedProps={animatedDotProps}
-        r={size}
-        fill={color}
-        opacity={opacity}
-        {...dotProps}
+      <Circle
+        cx={point?.x ?? 0}
+        cy={point?.y ?? 0}
+        r={typeof dotProps?.r === 'number' ? dotProps.r : size}
+        color={dotProps?.color ?? dotProps?.fill ?? color}
+        opacity={resolvedOpacity}
       />
       {hasOuterDot && (
-        <AnimatedCircle
-          animatedProps={animatedOuterDotProps}
-          fill={color}
-          {...outerDotProps}
+        <Circle
+          cx={point?.x ?? 0}
+          cy={point?.y ?? 0}
+          r={typeof outerDotProps?.r === 'number' ? outerDotProps.r : outerRadius}
+          opacity={outerOpacity}
+          color={
+            outerDotProps?.color ?? outerDotProps?.fill ?? color
+          }
         />
       )}
     </>
