@@ -1,7 +1,6 @@
 import React from 'react';
 import { processColor } from 'react-native';
 import { Skia } from '@shopify/react-native-skia';
-import { svgPathProperties } from 'svg-path-properties';
 
 export type CompatibleStrokeProps = {
   opacity?: number;
@@ -28,8 +27,6 @@ type GradientStop = {
   color: string;
   position: number;
 };
-
-const MIN_PATH_SAMPLE_COUNT = 60;
 
 function parseNumericValue(value: number | string | undefined, fallback: number) {
   if (typeof value === 'number') {
@@ -134,34 +131,6 @@ export function getGradientStops(
       ),
     };
   });
-}
-
-export function makeSkPathFromSvg(svgPath: string) {
-  const path = Skia.Path.Make();
-
-  if (!svgPath) {
-    return path;
-  }
-
-  const properties = new svgPathProperties(svgPath);
-  const length = properties.getTotalLength();
-  const sampleCount = Math.max(
-    MIN_PATH_SAMPLE_COUNT,
-    Math.ceil(length / 2)
-  );
-
-  for (let index = 0; index <= sampleCount; index += 1) {
-    const sampleLength = sampleCount === 0 ? 0 : (length * index) / sampleCount;
-    const { x, y } = properties.getPointAtLength(sampleLength);
-
-    if (index === 0) {
-      path.moveTo(x, y);
-    } else {
-      path.lineTo(x, y);
-    }
-  }
-
-  return path;
 }
 
 export function makeSkPathFromPoints(
